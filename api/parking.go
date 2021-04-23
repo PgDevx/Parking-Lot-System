@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"my/v1/api/wrapper"
 	"my/v1/app"
 	"my/v1/errors"
 	"my/v1/model/validation"
@@ -10,12 +11,13 @@ import (
 
 func createParkingLot() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		var requestCTX wrapper.RequestContext
 		if l := r.ContentLength; l == 0 {
 			var err error
 			err = errors.BadRequest.Wrapf(err, "Empty request data")
 			err = errors.AddErrorContext(err, "schema", "Recieved empty json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
@@ -26,33 +28,39 @@ func createParkingLot() func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&form); err != nil {
 			err = errors.BadRequest.Wrapf(err, "unable to read json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
-			json.NewEncoder(w).Encode(errs)
+			requestCTX.SetErrs(errs)
 			return
 		}
 
 		res, err := app.CreateParkingLot(form.NoOfSlot)
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
 	}
 }
 
 func parkCar() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var requestCTX wrapper.RequestContext
+
 		if l := r.ContentLength; l == 0 {
 			var err error
 			err = errors.BadRequest.Wrapf(err, "Empty request data")
 			err = errors.AddErrorContext(err, "schema", "Recieved empty json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
@@ -63,46 +71,58 @@ func parkCar() func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&form); err != nil {
 			err = errors.BadRequest.Wrapf(err, "unable to read json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
-			json.NewEncoder(w).Encode(errs)
+			requestCTX.SetErrs(errs)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		res, err := app.ParkCar(form.RegistrationNo, form.Color)
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
+
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
 	}
 }
 
 func getStatusOfParkingLot() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var requestCTX wrapper.RequestContext
 		res, err := app.GetStatusOfParkingLot()
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
+
 	}
 }
 
 func removeCar() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var requestCTX wrapper.RequestContext
+
 		if l := r.ContentLength; l == 0 {
 			var err error
 			err = errors.BadRequest.Wrapf(err, "Empty request data")
 			err = errors.AddErrorContext(err, "schema", "Recieved empty json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
@@ -113,33 +133,40 @@ func removeCar() func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&form); err != nil {
 			err = errors.BadRequest.Wrapf(err, "unable to read json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
-			json.NewEncoder(w).Encode(errs)
+			requestCTX.SetErrs(errs)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		res, err := app.RemoveCar(form.RegistrationNo)
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
 	}
 }
 
 func getSameColorCar() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var requestCTX wrapper.RequestContext
+
 		if l := r.ContentLength; l == 0 {
 			var err error
 			err = errors.BadRequest.Wrapf(err, "Empty request data")
 			err = errors.AddErrorContext(err, "schema", "Recieved empty json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
@@ -150,33 +177,40 @@ func getSameColorCar() func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&form); err != nil {
 			err = errors.BadRequest.Wrapf(err, "unable to read json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
-			json.NewEncoder(w).Encode(errs)
+			requestCTX.SetErrs(errs)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		res, err := app.GetSameColorCar(form.Color)
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
 	}
 }
 
 func getParkedSlot() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var requestCTX wrapper.RequestContext
+
 		if l := r.ContentLength; l == 0 {
 			var err error
 			err = errors.BadRequest.Wrapf(err, "Empty request data")
 			err = errors.AddErrorContext(err, "schema", "Recieved empty json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
@@ -187,21 +221,25 @@ func getParkedSlot() func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&form); err != nil {
 			err = errors.BadRequest.Wrapf(err, "unable to read json schema")
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
-			json.NewEncoder(w).Encode(errs)
+			requestCTX.SetErrs(errs)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 
 		res, err := app.GetParkedSlot(form.RegistrationNo)
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
+			requestCTX.SetErr(err)
+			wrapper.Response(requestCTX, w, r)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		requestCTX.SetAppResponse(res, 200)
+		wrapper.Response(requestCTX, w, r)
 	}
 }

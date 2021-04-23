@@ -8,7 +8,7 @@ import (
 )
 
 func Server(r *mux.Router) error {
-	log.Println("server running on  port 9003...")
-	log.Fatal(http.ListenAndServe(":9003", r))
+	log.Println("server running on  port 9001...")
+	log.Fatal(http.ListenAndServe(":9001", r))
 	return nil
 }
