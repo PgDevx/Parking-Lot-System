@@ -15,7 +15,7 @@ type MongoStorage struct {
 }
 
 func NewMongoStorage() *MongoStorage {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://admin_pg:******@pgcluster.g4nlk.mongodb.net/parking_lot?retryWrites=true&w=majority"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://admin_pg:@pgcluster.g4nlk.mongodb.net/parking_lot?retryWrites=true&w=majority"))
 	if err != nil {
 		panic(err)
 	}

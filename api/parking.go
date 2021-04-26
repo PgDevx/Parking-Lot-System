@@ -35,6 +35,7 @@ func createParkingLot() func(w http.ResponseWriter, r *http.Request) {
 
 		if errs := validation.NewValidation().Validate(&form); errs != nil {
 			requestCTX.SetErrs(errs)
+			wrapper.Response(requestCTX, w, r)
 			return
 		}
 

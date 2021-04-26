@@ -22,12 +22,6 @@ const (
 	InvalidSchema ErrorType = "InvalidSchema"
 	// DBError error
 	DBError ErrorType = "DBError"
-	// SessionError error
-	SessionError ErrorType = "SessionError"
-	// AuthenticationError error
-	AuthenticationError ErrorType = "AuthenticationError"
-	// PermissionDenied Error
-	PermissionDenied ErrorType = "PermissionDenied"
 
 	// ServerError Error
 	ServerError ErrorType = "ServerError"

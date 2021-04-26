@@ -9,11 +9,9 @@ import (
 type ResponseType string
 
 const (
-	HTMLResp     ResponseType = "html"
-	JSONResp     ResponseType = "json"
-	RedirectResp ResponseType = "redirect"
-	FileResp     ResponseType = "file"
-	ErrorResp    ResponseType = "error"
+	HTMLResp  ResponseType = "html"
+	JSONResp  ResponseType = "json"
+	ErrorResp ResponseType = "error"
 )
 
 // AppErr := app error struct

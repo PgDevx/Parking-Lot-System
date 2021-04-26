@@ -50,11 +50,11 @@ func ParkCar(regNo int, color string) (*model.ParkingCheck, error) {
 	}
 	carID := res.InsertedID.(primitive.ObjectID)
 	car.ID = carID
+
 	slot, err := getEmptyParkingSlots()
 	if err != nil {
 		return nil, errors.NotFound.Wrapf(err, "Parking slot Full")
 	}
-
 	filter := bson.M{"slot_no": slot}
 	update := bson.M{"$push": bson.M{"car": car}, "$set": bson.M{"status": "filled"}}
 	ress, err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).UpdateOne(context.TODO(), filter, update)
