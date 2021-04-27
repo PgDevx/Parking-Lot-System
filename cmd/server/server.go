@@ -14,7 +14,7 @@ func Server(r *mux.Router) error {
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE"})
 	origins := handlers.AllowedOrigins([]string{"*"})
 
-	log.Println("server running on  port 9001...")
-	log.Fatal(http.ListenAndServe(":9001", handlers.CORS(headers, methods, origins)(r)))
+	log.Println("server running on  port 9000...")
+	log.Fatal(http.ListenAndServe(":9000", handlers.CORS(headers, methods, origins)(r)))
 	return nil
 }

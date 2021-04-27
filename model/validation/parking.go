@@ -5,6 +5,7 @@ type ValidateCreateParkingLot struct {
 }
 
 type ValidateParkCar struct {
+	Code           string `json:"code,omitempty" bson:"code,omitempty"`
 	RegistrationNo int    `json:"registration_no" validate:"required"`
 	Color          string `json:"color" validate:"required"`
 }

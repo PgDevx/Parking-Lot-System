@@ -39,7 +39,7 @@ func createParkingLot() func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		res, err := app.CreateParkingLot(form.NoOfSlot)
+		res, err := app.NewApp().CreateParkingLot(form.NoOfSlot)
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)
@@ -83,7 +83,7 @@ func parkCar() func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		res, err := app.ParkCar(form.RegistrationNo, form.Color)
+		res, err := app.NewApp().ParkCar(form.Code, form.RegistrationNo, form.Color)
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)
@@ -100,7 +100,7 @@ func getStatusOfParkingLot() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var requestCTX wrapper.RequestContext
-		res, err := app.GetStatusOfParkingLot()
+		res, err := app.NewApp().GetStatusOfParkingLot()
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)
@@ -145,7 +145,7 @@ func removeCar() func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		res, err := app.RemoveCar(form.RegistrationNo)
+		res, err := app.NewApp().RemoveCar(form.RegistrationNo)
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)
@@ -189,7 +189,7 @@ func getSameColorCar() func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		res, err := app.GetSameColorCar(form.Color)
+		res, err := app.NewApp().GetSameColorCar(form.Color)
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)
@@ -233,7 +233,7 @@ func getParkedSlot() func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		res, err := app.GetParkedSlot(form.RegistrationNo)
+		res, err := app.NewApp().GetParkedSlot(form.RegistrationNo)
 		if err != nil {
 			requestCTX.SetErr(err)
 			wrapper.Response(requestCTX, w, r)

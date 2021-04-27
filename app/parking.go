@@ -2,62 +2,129 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"my/v1/errors"
 	"my/v1/model"
-	"my/v1/mongo"
+	"strconv"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func CreateParkingLot(n int) ([]interface{}, error) {
+func (a *App) CreateParkingLot(n int) ([]interface{}, error) {
 	var parking []interface{}
+	var pid []model.Parking
+	code, err := a.generateParkingCode()
+	if err != nil {
+		return nil, err
+	}
+
+	lots := &model.ParkingLots{
+		Code: code,
+	}
+	ress, err := a.MongoDB.Database.Collection(model.ParkingLotsColl).InsertOne(context.TODO(), lots)
+	if err != nil {
+		return nil, errors.DBError.Wrapf(err, "Failed to query database")
+	}
+	lots.ID = ress.InsertedID.(primitive.ObjectID)
 
 	for i := 1; i <= n; i++ {
 		parking = append(parking, model.Parking{
+			Code:   code,
 			SlotNo: i,
 			Status: "empty",
 		})
 	}
-	res, err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).InsertMany(context.TODO(), parking)
+	res, err := a.MongoDB.Database.Collection(model.ParkingColl).InsertMany(context.TODO(), parking)
 	if err != nil {
+		return nil, errors.DBError.Wrapf(err, "Failed to query database")
+	}
+
+	opts := options.Find().SetProjection(bson.M{"_id": 1})
+	cur, err := a.MongoDB.Database.Collection(model.ParkingColl).Find(context.TODO(), bson.M{"code": code}, opts)
+	if err != nil {
+		return nil, errors.DBError.Wrapf(err, "Failed to query database")
+	}
+	if err := cur.All(context.TODO(), &pid); err != nil {
 		return nil, err
+	}
+	var id []primitive.ObjectID
+	for _, v := range pid {
+		id = append(id, v.ID)
+	}
+
+	filter := bson.M{"code": code}
+	update := bson.M{"$set": bson.M{"parking": id}}
+	pk, err := a.MongoDB.Database.Collection(model.ParkingLotsColl).UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, errors.DBError.Wrap(err, "Failed to Park car at the parking slot")
+	}
+	if pk.MatchedCount == 0 {
+		return nil, errors.NotFound.New("Parking slot not found")
+	}
+	if pk.ModifiedCount == 0 {
+		return nil, errors.DBError.New("Failed to update parking lot")
 	}
 
 	return res.InsertedIDs, nil
 }
 
-func getEmptyParkingSlots() (int, error) {
-	var empty model.Parking
-	err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).FindOne(context.TODO(), bson.M{"status": "empty"}).Decode(&empty)
+func (a *App) generateParkingCode() (string, error) {
+	var parking *model.Parking
+	opts := options.FindOne().SetProjection(bson.M{"_id": 0, "code": 1}).SetSort(bson.M{"_id": -1})
+	err := a.MongoDB.Database.Collection(model.ParkingLotsColl).FindOne(context.TODO(), bson.M{}, opts).Decode(&parking)
+	var prevCodeInt int
 	if err != nil {
-		return 0, errors.DBError.Wrapf(err, "Failed to querry Database")
+		if err == mongo.ErrNoDocuments {
+			prevCodeInt = 0
+		} else {
+			return "", errors.DBError.Wrap(err, "Failed to set code")
+		}
+	} else {
+		prevCode := strings.SplitN(parking.Code, "-", -1)
+		prevCodeInt, _ = strconv.Atoi(prevCode[len(prevCode)-1])
 	}
-	slot := empty.SlotNo
-	return slot, nil
+	parkingCode := fmt.Sprintf("P-%s", strconv.Itoa(prevCodeInt+1))
+
+	return parkingCode, nil
 }
 
-func ParkCar(regNo int, color string) (*model.ParkingCheck, error) {
+func (a *App) getEmptyParkingSlots(code string) (int, primitive.ObjectID, error) {
+	var empty model.Parking
+	filter := bson.M{"code": code, "status": "empty"}
+	err := a.MongoDB.Database.Collection(model.ParkingColl).FindOne(context.TODO(), filter).Decode(&empty)
+	if err != nil {
+		return 0, primitive.NilObjectID, errors.DBError.Wrapf(err, "Failed to querry Database")
+	}
+	slot := empty.SlotNo
+	ID := empty.ID
+	return slot, ID, nil
+}
 
+func (a *App) ParkCar(code string, regNo int, color string) (*model.Car, error) {
+
+	slot, id, err := a.getEmptyParkingSlots(code)
+	if err != nil {
+		return nil, errors.NotFound.Wrapf(err, "Parking slot Full")
+	}
 	car := &model.Car{
+		ParkingID:      id,
 		RegistrationNo: regNo,
 		Color:          color,
 	}
 
-	res, err := mongo.NewMongoStorage().Database.Collection(model.CarColl).InsertOne(context.TODO(), car)
+	res, err := a.MongoDB.Database.Collection(model.CarColl).InsertOne(context.TODO(), car)
 	if err != nil {
-		return nil, err
+		return nil, errors.DBError.Wrap(err, "Failed to Park car at the parking slot")
 	}
-	carID := res.InsertedID.(primitive.ObjectID)
-	car.ID = carID
+	car.ID = res.InsertedID.(primitive.ObjectID)
 
-	slot, err := getEmptyParkingSlots()
-	if err != nil {
-		return nil, errors.NotFound.Wrapf(err, "Parking slot Full")
-	}
-	filter := bson.M{"slot_no": slot}
-	update := bson.M{"$push": bson.M{"car": car}, "$set": bson.M{"status": "filled"}}
-	ress, err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).UpdateOne(context.TODO(), filter, update)
+	filter := bson.M{"code": code, "slot_no": slot}
+	update := bson.M{"$set": bson.M{"status": "filled"}}
+	ress, err := a.MongoDB.Database.Collection(model.ParkingColl).UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, errors.DBError.Wrap(err, "Failed to Park car at the parking slot")
 	}
@@ -67,18 +134,25 @@ func ParkCar(regNo int, color string) (*model.ParkingCheck, error) {
 	if ress.ModifiedCount == 0 {
 		return nil, errors.DBError.New("Failed to update parking lot")
 	}
-	park := &model.ParkingCheck{
-		SlotNo: slot,
-		Status: "filled",
-		Car:    car,
-	}
 
-	return park, nil
+	return car, nil
 }
 
-func GetStatusOfParkingLot() ([]model.Parking, error) {
-	var parking []model.Parking
-	cur, err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).Find(context.TODO(), bson.M{})
+func (a *App) GetStatusOfParkingLot() ([]model.ParkingCheck, error) {
+	var parking []model.ParkingCheck
+
+	lookupStage := bson.D{
+		{
+			Key: "$lookup", Value: bson.M{
+				"from":         "car",
+				"localField":   "_id",
+				"foreignField": "parking_id",
+				"as":           "car",
+			},
+		},
+	}
+
+	cur, err := a.MongoDB.Database.Collection(model.ParkingColl).Aggregate(context.TODO(), mongo.Pipeline{lookupStage})
 	if err != nil {
 		return nil, errors.DBError.Wrapf(err, "Failed to querry database")
 	}
@@ -89,9 +163,14 @@ func GetStatusOfParkingLot() ([]model.Parking, error) {
 	return parking, nil
 }
 
-func RemoveCar(regNO int) (bool, error) {
+func (a *App) RemoveCar(regNO int) (bool, error) {
+	var car model.Car
+	err := a.MongoDB.Database.Collection(model.CarColl).FindOne(context.TODO(), bson.M{"registration_no": regNO}).Decode(&car)
+	if err != nil {
+		return false, errors.DBError.Wrapf(err, "Failed to querry Database")
+	}
 
-	res, err := mongo.NewMongoStorage().Database.Collection(model.CarColl).DeleteOne(context.TODO(), bson.M{"registration_no": regNO})
+	res, err := a.MongoDB.Database.Collection(model.CarColl).DeleteOne(context.TODO(), bson.M{"registration_no": regNO})
 	if err != nil {
 		return false, err
 	}
@@ -99,9 +178,9 @@ func RemoveCar(regNO int) (bool, error) {
 		return false, errors.NotFound.New("Car not found in Parking lot")
 	}
 
-	filter := bson.M{"car.registration_no": regNO}
-	update := bson.M{"$unset": bson.M{"car": ""}, "$set": bson.M{"status": "empty"}}
-	ress, err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).UpdateOne(context.TODO(), filter, update)
+	filter := bson.M{"_id": car.ParkingID}
+	update := bson.M{"$set": bson.M{"status": "empty"}}
+	ress, err := a.MongoDB.Database.Collection(model.ParkingColl).UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return false, errors.DBError.Wrapf(err, "Failed to querry database")
 	}
@@ -115,9 +194,9 @@ func RemoveCar(regNO int) (bool, error) {
 	return true, nil
 }
 
-func GetSameColorCar(color string) ([]model.Car, error) {
+func (a *App) GetSameColorCar(color string) ([]model.Car, error) {
 	var car []model.Car
-	cur, err := mongo.NewMongoStorage().Database.Collection(model.CarColl).Find(context.TODO(), bson.M{"color": color})
+	cur, err := a.MongoDB.Database.Collection(model.CarColl).Find(context.TODO(), bson.M{"color": color})
 	if err != nil {
 		return nil, errors.DBError.Wrapf(err, "Failed to querry database")
 	}
@@ -130,11 +209,17 @@ func GetSameColorCar(color string) ([]model.Car, error) {
 	return car, nil
 }
 
-func GetParkedSlot(regNo int) (*model.Parked, error) {
+func (a *App) GetParkedSlot(regNo int) (*model.Parked, error) {
 	var p *model.Parked
 
-	filter := bson.M{"car.registration_no": regNo}
-	err := mongo.NewMongoStorage().Database.Collection(model.ParkingColl).FindOne(context.TODO(), filter).Decode(&p)
+	var car model.Car
+	err := a.MongoDB.Database.Collection(model.CarColl).FindOne(context.TODO(), bson.M{"registration_no": regNo}).Decode(&car)
+	if err != nil {
+		return nil, errors.DBError.Wrapf(err, "Failed to querry Database")
+	}
+
+	filter := bson.M{"_id": car.ParkingID}
+	err = a.MongoDB.Database.Collection(model.ParkingColl).FindOne(context.TODO(), filter).Decode(&p)
 	if err != nil {
 		return nil, errors.DBError.Wrapf(err, "Failed to querry database")
 	}
